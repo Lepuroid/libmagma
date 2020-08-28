@@ -94,13 +94,6 @@ impl Default for Block {
     }
 }
 
-impl From<[u8; BLOCK_LEN]> for Block {
-    fn from(array: [u8; BLOCK_LEN]) -> Block {
-        let block = Block { 0: array };
-        block
-    }
-}
-
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "[{:08b}, {:08b}, {:08b}, {:08b}]", self[0], self[1], self[2], self[3])
