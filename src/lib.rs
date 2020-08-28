@@ -116,10 +116,8 @@ impl BitXorAssign for Block {
 impl BitXor for Block {
     type Output = Self;
     fn bitxor(self, Block(rhs): Self) -> Self::Output {
-        let Block(lhs) = self;
-        assert_eq!(lhs.len(), rhs.len());
         let mut block: Block = Default::default();
-        block.iter_mut().zip(lhs.iter().zip(rhs.iter())).for_each(|(c, (a, b))| *c = a ^ b);
+        block.iter_mut().zip(self.iter().zip(rhs.iter())).for_each(|(c, (a, b))| *c = a ^ b);
         block
     }
 }
