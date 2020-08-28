@@ -12,10 +12,10 @@ mod tests {
         let bb: Block = Block::from_array([0b_10011001_u8, 0b_01100110_u8,
                                            0b_11100110_u8, 0b_10011001_u8]);
         println!("aa => {}\nbb => {}", aa, bb);
-        let cc: Block = Block::new_add_mod_2(aa, bb);
+        let cc: Block = aa ^ bb;
         let mut dd: Block = cc;
-        dd.add_mod_2(cc);
-        println!("cc => {}\ndd => {}", cc, dd);
+        dd ^= cc;
+        println!("cc => {}\ndd => {}\n", cc, dd);
     }
     #[test]
     fn test_2() {
@@ -27,13 +27,13 @@ mod tests {
     }
 }
 
+use core::slice::{Iter, IterMut};
 use std::{
     fmt::{Display, Formatter, Result},
     fs::{write, OpenOptions},
     io::Read,
-    ops::{Index, IndexMut},
+    ops::{BitXor, BitXorAssign, Index, IndexMut},
 };
-use core::slice::{Iter, IterMut};
 
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
@@ -107,39 +107,46 @@ impl Display for Block {
     }
 }
 
+impl BitXorAssign for Block {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a ^= b)
+    }
+}
+
+impl BitXor for Block {
+    type Output = Self;
+    fn bitxor(self, Block(rhs): Self) -> Self::Output {
+        let Block(lhs) = self;
+        assert_eq!(lhs.len(), rhs.len());
+        let mut block: Block = Default::default();
+        block.iter_mut().zip(lhs.iter().zip(rhs.iter())).for_each(|(c, (a, b))| *c = a ^ b);
+        block
+    }
+}
+
 trait Cypher {
-    fn add_mod_2(&mut self, block: Block);
     fn add_mod_32(&mut self, block: Block);
     fn iter(&self) -> Iter<u8>;
     fn iter_mut(&mut self) -> IterMut<u8>;
 
-    fn new_add_mod_2(a: Block, b: Block) -> Block {
-        let mut block: Block = Default::default();
-        block.iter_mut().zip(a.iter().zip(b.iter())).for_each(|(c, (a, b))| *c = a ^ b);
-        block
-    }
-
-    fn new_add_mod_32(_a: Block, _b: Block) -> Block{
+    fn new_add_mod_32(_a: Block, _b: Block) -> Block {
         let mut _block: Block = Default::default();
         //Сложение по модулю 32
         _block
+    }
+
+    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
+        let block = Block { 0: array };
+        block
     }
 
     fn from_u32(n: u32) -> Block {
         let block: Block = Block::from_array(n.to_be_bytes());
         block
     }
-    
-    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
-        let block = Block { 0: array };
-        block
-    }
 }
 
 impl Cypher for Block {
-    fn add_mod_2(&mut self, block: Block) {
-        self.iter_mut().zip(block.iter()).for_each(|(a, b)| *a ^= b);
-    }
     fn add_mod_32(&mut self, block: Block) {
         // Сложение по модулю 32
         println!("{}, {}", self, block); // Заглушка
