@@ -33,6 +33,7 @@ use std::{
     io::Read,
     ops::{Index, IndexMut},
 };
+use core::slice::{Iter, IterMut};
 
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
@@ -109,10 +110,12 @@ impl Display for Block {
 trait Cypher {
     fn add_mod_2(&mut self, block: Block);
     fn add_mod_32(&mut self, block: Block);
+    fn iter(&self) -> Iter<u8>;
+    fn iter_mut(&mut self) -> IterMut<u8>;
 
     fn new_add_mod_2(a: Block, b: Block) -> Block {
         let mut block: Block = Default::default();
-        block.0.iter_mut().zip(a.0.iter().zip(b.0.iter())).for_each(|(c, (a, b))| *c = a ^ b);
+        block.iter_mut().zip(a.iter().zip(b.iter())).for_each(|(c, (a, b))| *c = a ^ b);
         block
     }
 
@@ -123,7 +126,7 @@ trait Cypher {
     }
 
     fn from_u32(n: u32) -> Block {
-        let block: Block = From::from(n.to_be_bytes());
+        let block: Block = Block::from_array(n.to_be_bytes());
         block
     }
     
@@ -135,10 +138,17 @@ trait Cypher {
 
 impl Cypher for Block {
     fn add_mod_2(&mut self, block: Block) {
-        self.0.iter_mut().zip(block.0.iter()).for_each(|(a, b)| *a ^= b);
+        self.iter_mut().zip(block.iter()).for_each(|(a, b)| *a ^= b);
     }
     fn add_mod_32(&mut self, block: Block) {
+        // Сложение по модулю 32
         println!("{}, {}", self, block); // Заглушка
+    }
+    fn iter(&self) -> Iter<u8> {
+        self.0.iter()
+    }
+    fn iter_mut(&mut self) -> IterMut<u8> {
+        self.0.iter_mut()
     }
 }
 
