@@ -8,18 +8,14 @@ mod tests {
         use crate::Block;
         use crate::Cypher;
 
-        let aa: Block = From::from(0b_01100110_10011001_00011001_01100110_u32);
-        let bb: Block = From::from([
-            0b_10011001_u8,
-            0b_01100110_u8,
-            0b_11100110_u8,
-            0b_10011001_u8,
-        ]);
-        println!("{}\n{}", aa, bb);
+        let aa: Block = Block::from_u32(0b_01100110_10011001_00011001_01100110_u32);
+        let bb: Block = Block::from_array([0b_10011001_u8, 0b_01100110_u8,
+                                           0b_11100110_u8, 0b_10011001_u8]);
+        println!("aa => {}\nbb => {}", aa, bb);
         let cc: Block = Block::new_add_mod_2(aa, bb);
-        let mut dd: Block = cc.clone();
+        let mut dd: Block = cc;
         dd.add_mod_2(cc);
-        println!("{}\n", dd);
+        println!("cc => {}\ndd => {}", cc, dd);
     }
     #[test]
     fn test_2() {
@@ -41,7 +37,7 @@ use std::{
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 struct Block([u8; BLOCK_LEN]);
 
 struct BlockIntoIterator {
@@ -104,13 +100,6 @@ impl From<[u8; BLOCK_LEN]> for Block {
     }
 }
 
-impl From<u32> for Block {
-    fn from(n: u32) -> Block {
-        let block: Block = From::from(n.to_be_bytes());
-        block
-    }
-}
-
 impl Display for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "[{:08b}, {:08b}, {:08b}, {:08b}]", self[0], self[1], self[2], self[3])
@@ -120,8 +109,28 @@ impl Display for Block {
 trait Cypher {
     fn add_mod_2(&mut self, block: Block);
     fn add_mod_32(&mut self, block: Block);
-    fn new_add_mod_2(a: Block, b: Block) -> Block;
-    fn new_add_mod_32(a: Block, b: Block) -> Block;
+
+    fn new_add_mod_2(a: Block, b: Block) -> Block {
+        let mut block: Block = Default::default();
+        block.0.iter_mut().zip(a.0.iter().zip(b.0.iter())).for_each(|(c, (a, b))| *c = a ^ b);
+        block
+    }
+
+    fn new_add_mod_32(_a: Block, _b: Block) -> Block{
+        let mut _block: Block = Default::default();
+        //Сложение по модулю 32
+        _block
+    }
+
+    fn from_u32(n: u32) -> Block {
+        let block: Block = From::from(n.to_be_bytes());
+        block
+    }
+    
+    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
+        let block = Block { 0: array };
+        block
+    }
 }
 
 impl Cypher for Block {
@@ -130,17 +139,6 @@ impl Cypher for Block {
     }
     fn add_mod_32(&mut self, block: Block) {
         println!("{}, {}", self, block); // Заглушка
-    }
-    fn new_add_mod_2(a: Block, b: Block) -> Block {
-        // Спасибо Denis Lisov https://github.com/tanriol
-        let mut block: Block = Default::default();
-        block.0.iter_mut().zip(a.0.iter().zip(b.0.iter())).for_each(|(c, (a, b))| *c = a ^ b);
-        block
-    }
-    fn new_add_mod_32(_a: Block, _b: Block) -> Block {
-        let mut _block: Block = Default::default();
-        //Сложение по модулю 32
-        _block
     }
 }
 
