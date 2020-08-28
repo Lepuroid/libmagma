@@ -1,0 +1,2 @@
+# libmagma
+ magma cypher library
