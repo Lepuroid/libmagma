@@ -19,6 +19,20 @@ mod tests {
     }
     #[test]
     fn test_2() {
+        use crate::Block;
+        use crate::Cypher;
+
+        let aa: Block = Block::from_u32(0b_10000000_00000000_00000000_00000000_u32);
+        let bb: Block = Block::from_array([0b_01000000_u8, 0b_00000000_u8,
+                                           0b_00000000_u8, 0b_00000000_u8]);
+        println!("aa => {}\nbb => {}", aa, bb);
+        let cc: Block = aa + bb;
+        let mut dd: Block = cc;
+        dd += bb ;
+        println!("cc => {}\ndd => {}\n", cc, dd);
+    }
+    #[test]
+    fn test_3() {
         let mut path_in = r"C:\OneDrive\Projects\Rust\headache\log.csv";
         let key = r#"12345678"#;
         crate::encrypt_ecb(path_in, key);
@@ -32,7 +46,7 @@ use std::{
     fmt::{Display, Formatter, Result},
     fs::{write, OpenOptions},
     io::Read,
-    ops::{BitXor, BitXorAssign, Index, IndexMut},
+    ops::{Add, AddAssign, BitXor, BitXorAssign, Index, IndexMut},
 };
 
 const BLOCK_LEN: usize = 4;
@@ -108,23 +122,31 @@ impl BitXorAssign for Block {
 
 impl BitXor for Block {
     type Output = Self;
-    fn bitxor(self, Block(rhs): Self) -> Self::Output {
+    fn bitxor(self, Block(rhs): Self) -> Self {
         let mut block: Block = Default::default();
         block.iter_mut().zip(self.iter().zip(rhs.iter())).for_each(|(c, (a, b))| *c = a ^ b);
         block
     }
 }
 
+impl AddAssign for Block {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Block::from_u32(u32::saturating_add(self.to_u32(), rhs.to_u32()))
+    }
+}
+
+impl Add for Block {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Block::from_u32(u32::saturating_add(self.to_u32(), rhs.to_u32()))
+    }
+
+}
+
 trait Cypher {
-    fn add_mod_32(&mut self, block: Block);
     fn iter(&self) -> Iter<u8>;
     fn iter_mut(&mut self) -> IterMut<u8>;
-
-    fn new_add_mod_32(_a: Block, _b: Block) -> Block {
-        let mut _block: Block = Default::default();
-        //Сложение по модулю 32
-        _block
-    }
+    fn to_u32(&self) -> u32;
 
     fn from_array(array: [u8; BLOCK_LEN]) -> Block {
         let block = Block { 0: array };
@@ -138,15 +160,16 @@ trait Cypher {
 }
 
 impl Cypher for Block {
-    fn add_mod_32(&mut self, block: Block) {
-        // Сложение по модулю 32
-        println!("{}, {}", self, block); // Заглушка
-    }
     fn iter(&self) -> Iter<u8> {
         self.0.iter()
     }
+
     fn iter_mut(&mut self) -> IterMut<u8> {
         self.0.iter_mut()
+    }
+
+    fn to_u32(&self) -> u32 {
+        u32::from_be_bytes(self.0)
     }
 }
 
