@@ -52,10 +52,12 @@ mod tests {
 
 use core::slice::{Iter, IterMut};
 use std::{
-    fmt::{Display, Formatter, Result},
+    error::Error,
+    fmt::{Display, Formatter, Result as fmt_Result},
     fs::{write, OpenOptions},
     io::Read,
     ops::{Add, AddAssign, BitXor, BitXorAssign, Index, IndexMut},
+    result::Result,
 };
 
 const BLOCK_LEN: usize = 4;
@@ -91,7 +93,7 @@ impl IntoIterator for Block {
 impl Iterator for BlockIntoIterator {
     type Item = u8;
     fn next(&mut self) -> Option<u8> {
-        let result = match self.index {
+        let result: Option<u8> = match self.index {
             0..=BLOCK_LEN_INC => Some(self.block[self.index]),
             _ => None,
         };
@@ -120,7 +122,7 @@ impl IndexMut<usize> for Block {
 }
 
 impl Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt_Result {
         write!(f, "[{:08b} {:08b} {:08b} {:08b}]", self[0], self[1], self[2], self[3])
     }
 }
@@ -189,12 +191,12 @@ impl Block {
         let mut string_2: String = String::new();
         let mut string_3: String = String::new();
         for i in 0..BLOCK_LEN {
-            let l4 = (&self[i] & mask) >> 4;
-            let r4 = &self[i] & !mask;
+            let l4: u8 = (&self[i] & mask) >> 4;
+            let r4: u8 = &self[i] & !mask;
             string_1.push_str(&format!("    {:x}{:x}   ", l4, r4));
             string_2.push_str(&format!("    ↓↓   "));
-            let l4_new = TABLE[i * 2][l4 as usize];
-            let r4_new = TABLE[i * 2 + 1][r4 as usize];
+            let l4_new: u8 = TABLE[i * 2][l4 as usize];
+            let r4_new: u8 = TABLE[i * 2 + 1][r4 as usize];
             string_3.push_str(&format!("    {:x}{:x}   ", l4_new, r4_new));
             block[i] = (l4_new << 4) + r4_new;
         }
@@ -203,23 +205,23 @@ impl Block {
     }
 }
 
-fn read_file(path: &str) -> String {
-    let mut file = OpenOptions::new().read(true).open(path).unwrap();
+fn read_file(path: &str) -> Result<String, Box <dyn Error>> {
+    let mut file = OpenOptions::new().read(true).open(path)?;
     let mut read_buffer = String::new();
-    file.read_to_string(&mut read_buffer).unwrap();
-    read_buffer
+    file.read_to_string(&mut read_buffer)?;
+    Ok(read_buffer)
 }
 
 pub fn encrypt_ecb(path_in: &str, _key: &str) {
     let mut path_out = String::from(path_in);
     path_out.push_str(".enc");
-    let data = read_file(path_in);
+    let data = read_file(path_in).unwrap();
     // Шифрование
     write(path_out, data).unwrap();
 }
 
 pub fn decrypt_ecb(path_in: &str, _key: &str) {
-    let data = read_file(path_in);
+    let data = read_file(path_in).unwrap();
     // Дешифрование
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
