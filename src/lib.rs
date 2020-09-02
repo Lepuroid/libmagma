@@ -1,16 +1,23 @@
 // todo: error handling
 // todo: ecb, cbc, cbf
+// todo: utf-8/utf-16 input check
+// todo: implement u256...
 
 #[cfg(test)]
 mod tests {
     #[test]
     fn test_1() {
+        // ^ and ^= overload
         use crate::Block;
         use crate::Cypher;
 
         let aa: Block = Block::from_u32(0b_01100110_10011001_00011001_01100110_u32);
-        let bb: Block = Block::from_array([0b_10011001_u8, 0b_01100110_u8,
-                                           0b_11100110_u8, 0b_10011001_u8]);
+        let bb: Block = Block::from_array([
+            0b_10011001_u8,
+            0b_01100110_u8,
+            0b_11100110_u8,
+            0b_10011001_u8,
+        ]);
         println!("aa => {}\nbb => {}", aa, bb);
         let cc: Block = aa ^ bb;
         let mut dd: Block = cc;
@@ -19,20 +26,26 @@ mod tests {
     }
     #[test]
     fn test_2() {
+        // + and += overload
         use crate::Block;
         use crate::Cypher;
 
         let aa: Block = Block::from_u32(0b_10000000_00000000_00000000_00000000_u32);
-        let bb: Block = Block::from_array([0b_01000000_u8, 0b_00000000_u8,
-                                           0b_00000000_u8, 0b_00000000_u8]);
+        let bb: Block = Block::from_array([
+            0b_01000000_u8,
+            0b_00000000_u8,
+            0b_00000000_u8,
+            0b_00000000_u8,
+        ]);
         println!("aa => {}\nbb => {}", aa, bb);
         let cc: Block = aa + bb;
         let mut dd: Block = cc;
-        dd += bb + Block::from_u32(256);
+        dd += bb + Block::from_u32(257);
         println!("cc => {}\ndd => {}\n", cc, dd);
     }
     #[test]
     fn test_3() {
+        // T Permutation
         use crate::Block;
         use crate::Cypher;
 
@@ -42,18 +55,38 @@ mod tests {
     }
     #[test]
     fn test_4() {
+        // Read/Write file
         let mut path_in = r"C:\OneDrive\Projects\Rust\headache\log.csv";
         let key = r#"12345678"#;
         crate::encrypt_ecb(path_in, key);
         path_in = r"C:\OneDrive\Projects\Rust\headache\log.csv.enc";
         crate::decrypt_ecb(path_in, key);
     }
+    #[test]
+    fn test_5() {
+        // Round keys from 256-bit key
+        use crate::Block;
+        use crate::Cypher;
+
+        let key: &str = "11112222333344445555666677778888";
+        let r_keys: [Block; 32] = Block::make_r_keys(&key);
+        let mut i: u8 = 0;
+        for x in r_keys.iter() {
+            i += 1;
+            println!("{}{}{}{} => {:x} => {}", x[0] as char, x[1] as char,
+                                               x[2] as char, x[3] as char, x, x);
+            match i {
+                8 => {i = 0; println!()},
+                _ => (),
+            }
+        }
+    }
 }
 
 use core::slice::{Iter, IterMut};
 use std::{
     error::Error,
-    fmt::{Display, Formatter, Result as fmt_Result},
+    fmt::{Display, Formatter, LowerHex, Result as fmt_Result},
     fs::{write, OpenOptions},
     io::Read,
     ops::{Add, AddAssign, BitXor, BitXorAssign, Index, IndexMut},
@@ -62,16 +95,16 @@ use std::{
 
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
-static TABLE: [[u8; 16]; 8] = [[1,7,14,13,0,5,8,3,4,15,10,6,9,12,11,2],
-                                [8,14,2,5,6,9,1,12,15,4,11,0,13,10,3,7],
-                                [5,13,15,6,9,2,12,10,11,7,8,1,4,3,14,0],
-                                [7,15,5,10,8,1,6,13,0,9,3,14,11,4,2,12],
-                                [12,8,2,1,13,4,15,6,7,0,10,5,3,14,9,11],
-                                [11,3,5,8,2,15,10,13,14,1,7,4,12,9,6,0],
-                                [6,8,2,3,9,10,5,12,1,14,4,7,11,13,0,15],
-                                [12,4,6,2,10,5,11,9,14,8,13,7,0,3,15,1]];
+static TABLE: [[u8; 16]; 8] = [[1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2],
+                               [8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7],
+                               [5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0],
+                               [7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12],
+                               [12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11],
+                               [11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0],
+                               [6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15],
+                               [12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1]];
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 struct Block([u8; BLOCK_LEN]);
 
 struct BlockIntoIterator {
@@ -127,6 +160,12 @@ impl Display for Block {
     }
 }
 
+impl LowerHex for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt_Result {
+        write!(f, "[{:x} {:x} {:x} {:x}]", self[0], self[1], self[2], self[3])
+    }
+}
+
 impl BitXorAssign for Block {
     fn bitxor_assign(&mut self, rhs: Self) {
         self.iter_mut().zip(rhs.iter()).for_each(|(a, b)| *a ^= b)
@@ -167,6 +206,19 @@ trait Cypher {
     fn from_u32(n: u32) -> Block {
         Block::from_array(n.to_be_bytes())
     }
+
+    fn make_r_keys(key: &str) -> [Block; 32] {
+        let mut r_keys: [Block; 32] = Default::default();
+        for i in (0..=16).step_by(8) {
+            for j in 0..8 {
+                r_keys[i + j].0.clone_from_slice(&key[(j * 4)..(j * 4 + 4)].as_bytes());
+            }
+        }
+        for j in 0..8 {
+            r_keys[24 + j].0.clone_from_slice(&key[(32 - j * 4 - 4)..(32 - j * 4)].as_bytes());
+        }
+        r_keys
+    }
 }
 
 impl Cypher for Block {
@@ -205,7 +257,7 @@ impl Block {
     }
 }
 
-fn read_file(path: &str) -> Result<String, Box <dyn Error>> {
+fn read_file(path: &str) -> Result<String, Box<dyn Error>> {
     let mut file = OpenOptions::new().read(true).open(path)?;
     let mut read_buffer = String::new();
     file.read_to_string(&mut read_buffer)?;
