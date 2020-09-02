@@ -77,6 +77,16 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn test_6() {
+        use crate::Block;
+
+        let data: String = String::from("Hello!!!");
+        let key: String = String::from("11112222333344445555666677778888");
+        let r_keys: [Block; 32] = Block::make_r_keys(&key);
+        Block::r2_31(data, r_keys);
+
+    }
 }
 
 use core::slice::{Iter, IterMut};
@@ -91,14 +101,25 @@ use std::{
 
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
-static TABLE: [[u8; 16]; 8] = [[1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2],
-                               [8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7],
-                               [5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0],
-                               [7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12],
-                               [12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11],
-                               [11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0],
-                               [6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15],
-                               [12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1]];
+static TABLE: [[u8; 16]; 8] = [
+    [1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2],
+    [8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7],
+    [5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0],
+    [7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12],
+    [12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11],
+    [11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0],
+    [6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15],
+    [12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1]];
+
+// static TABLE: [[u8; 16]; 8] = [
+//     [12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1],   
+//     [6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15],
+//     [11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0],
+//     [12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11],
+//     [7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12],
+//     [5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0],
+//     [8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7],
+//     [1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2]];
 
 #[derive(Copy, Clone, Debug, Default)]
 struct Block([u8; BLOCK_LEN]);
@@ -158,7 +179,7 @@ impl Display for Block {
 
 impl LowerHex for Block {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[{:x} {:x} {:x} {:x}]", self[0], self[1], self[2], self[3])
+        write!(f, "[{:02x} {:02x} {:02x} {:02x}]", self[0], self[1], self[2], self[3])
     }
 }
 
@@ -242,6 +263,40 @@ impl Block {
         }
         block
     }
+
+    fn right_xor_r_key(self, r_key: Block) -> Block {
+        Block::from_u32((self + r_key).permut().to_u32().rotate_left(11))
+        // test
+    }
+
+    fn r2_31(data: String, r_keys: [Block; 32]) {
+        println!("{}", data);
+        let (l, r) = data.split_at(4);
+        println!("{} {}", l, r);
+        let mut left = Block::from_array(slice_to_array_clone!(l.as_bytes(), [u8; 4]).unwrap());
+        let mut right = Block::from_array(slice_to_array_clone!(r.as_bytes(), [u8; 4]).unwrap());
+        println!("{} {}", left, right);
+        println!("{:x} {:x}", left, right);
+
+        for i in 0..31 {
+            let x_lt = left ^ right.right_xor_r_key(r_keys[i]);
+            left = right;
+            right = x_lt;
+        }
+        left = left ^ right.right_xor_r_key(r_keys[31]);
+
+
+        for i in (1..32).rev() {
+            let x_lt = left ^ right.right_xor_r_key(r_keys[i]);
+            left = right;
+            right = x_lt;
+        }
+        left = left ^ right.right_xor_r_key(r_keys[0]);
+
+        println!("{} {}", left, right);
+        println!("{:x} {:x}", left, right);
+        
+    }
 }
 
 fn read_file(path: &str) -> Result<String, Box<dyn Error>> {
@@ -265,4 +320,58 @@ pub fn decrypt_ecb(path_in: &str, _key: &str) {
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
     write(path_out, data).unwrap();
+}
+
+#[macro_export]
+macro_rules! slice_to_array_clone {
+    ($slice:expr, [$t:ty ; $len:expr] ) => {{
+        struct SafeArrayInitialization {
+            array: Option<[$t; $len]>,
+            count: usize,
+        }
+        impl SafeArrayInitialization {
+            fn new() -> Self {
+                SafeArrayInitialization { array: Some(unsafe { $crate::reexport::uninitialized() }), count: 0 }
+            }
+            fn init_from_slice(mut self, slice: &[$t]) -> Option<[$t; $len]> {
+                {
+                    let array_mut: &mut [$t] = self.array.as_mut().unwrap().as_mut();
+                    if slice.len() != array_mut.len() {
+                        return None;
+                    }
+                    debug_assert_eq!(self.count, 0);
+                    for (val, ptr) in slice.iter().zip(array_mut.iter_mut()) {
+                        let val = $crate::reexport::clone(*val);
+                        unsafe { $crate::reexport::ptr_write(ptr, val) };
+                        self.count += 1;
+                    }
+                }
+                self.array.take()
+            }
+        }
+        impl Drop for SafeArrayInitialization {
+            fn drop(&mut self) {
+                if let Some(mut array) = self.array.take() {
+                    let count = self.count;
+                    {
+                        for ptr in array.as_mut()[..count].iter_mut() {
+                            unsafe { $crate::reexport::ptr_read(ptr) };
+                        }
+                    }
+                    $crate::reexport::forget(array);
+                }
+            }
+        }
+
+        SafeArrayInitialization::new().init_from_slice($slice)
+    }}
+}
+
+#[doc(hidden)]
+pub mod reexport {
+    #[inline] pub fn clone<T: Clone>(source: T) -> T { source.clone() }
+    #[inline] pub unsafe fn ptr_write<T>(dst: *mut T, src: T) { ::std::ptr::write(dst, src) }
+    #[inline] pub unsafe fn ptr_read<T>(src: *const T) -> T { ::std::ptr::read(src) }
+    #[inline] pub fn forget<T>(t: T) { ::std::mem::forget(t) }
+    #[inline] pub unsafe fn uninitialized<T>() -> T { ::std::mem::uninitialized() }
 }
