@@ -1,7 +1,7 @@
 // todo: error handling
 // todo: ecb, cbc, cbf
 // todo: utf-8/utf-16 input check
-// todo: implement u256...
+// todo: implement u256?..
 
 #[cfg(test)]
 mod tests {
@@ -9,7 +9,6 @@ mod tests {
     fn test_1() {
         // ^ and ^= overload
         use crate::Block;
-        use crate::Cypher;
 
         let aa: Block = Block::from_u32(0b_01100110_10011001_00011001_01100110_u32);
         let bb: Block = Block::from_array([
@@ -28,7 +27,6 @@ mod tests {
     fn test_2() {
         // + and += overload
         use crate::Block;
-        use crate::Cypher;
 
         let aa: Block = Block::from_u32(0b_10000000_00000000_00000000_00000000_u32);
         let bb: Block = Block::from_array([
@@ -47,11 +45,10 @@ mod tests {
     fn test_3() {
         // T Permutation
         use crate::Block;
-        use crate::Cypher;
 
         let aa: Block = Block::from_u32(0b_10100101001111000101101011000011_u32);
-        println!("{}", aa);
-        let _bb = aa.t_permut();
+        let bb = aa.permut();
+        println!("{:x}\n ↓↓ ↓↓ ↓↓ ↓↓\n{:x}", aa, bb);
     }
     #[test]
     fn test_4() {
@@ -66,7 +63,6 @@ mod tests {
     fn test_5() {
         // Round keys from 256-bit key
         use crate::Block;
-        use crate::Cypher;
 
         let key: &str = "11112222333344445555666677778888";
         let r_keys: [Block; 32] = Block::make_r_keys(&key);
@@ -86,7 +82,7 @@ mod tests {
 use core::slice::{Iter, IterMut};
 use std::{
     error::Error,
-    fmt::{Display, Formatter, LowerHex, Result as fmt_Result},
+    fmt::{self, Display, Formatter, LowerHex},
     fs::{write, OpenOptions},
     io::Read,
     ops::{Add, AddAssign, BitXor, BitXorAssign, Index, IndexMut},
@@ -155,13 +151,13 @@ impl IndexMut<usize> for Block {
 }
 
 impl Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt_Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[{:08b} {:08b} {:08b} {:08b}]", self[0], self[1], self[2], self[3])
     }
 }
 
 impl LowerHex for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt_Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[{:x} {:x} {:x} {:x}]", self[0], self[1], self[2], self[3])
     }
 }
@@ -194,34 +190,7 @@ impl Add for Block {
     }
 }
 
-trait Cypher {
-    fn iter(&self) -> Iter<u8>;
-    fn iter_mut(&mut self) -> IterMut<u8>;
-    fn to_u32(&self) -> u32;
-
-    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
-        Block { 0: array }
-    }
-
-    fn from_u32(n: u32) -> Block {
-        Block::from_array(n.to_be_bytes())
-    }
-
-    fn make_r_keys(key: &str) -> [Block; 32] {
-        let mut r_keys: [Block; 32] = Default::default();
-        for i in (0..=16).step_by(8) {
-            for j in 0..8 {
-                r_keys[i + j].0.clone_from_slice(&key[(j * 4)..(j * 4 + 4)].as_bytes());
-            }
-        }
-        for j in 0..8 {
-            r_keys[24 + j].0.clone_from_slice(&key[(32 - j * 4 - 4)..(32 - j * 4)].as_bytes());
-        }
-        r_keys
-    }
-}
-
-impl Cypher for Block {
+impl Block {
     fn iter(&self) -> Iter<u8> {
         self.0.iter()
     }
@@ -233,26 +202,44 @@ impl Cypher for Block {
     fn to_u32(&self) -> u32 {
         u32::from_be_bytes(self.0)
     }
-}
 
-impl Block {
-    fn t_permut(&self) -> Block {
+    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
+        Block { 0: array }
+    }
+
+    fn from_u32(n: u32) -> Block {
+        Block::from_array(n.to_be_bytes())
+    }
+
+    fn make_r_keys(key: &str) -> [Block; 32] {
+        let mut r_keys: [Block; 32] = Default::default();
+        for i in 0..4 {
+            match i {
+                0..=2 => for j in 0..8 {
+                    r_keys[(i << 3) + j].0
+                    .copy_from_slice(&key[j << 2..(j << 2) + 4].as_bytes())
+                }
+                3 => for j in 0..8 {
+                    r_keys[(i << 3) + j].0
+                    .copy_from_slice(&key[(i + 1 << 3) - (j << 2) - 4..(i + 1 << 3) - (j << 2)]
+                    .as_bytes());
+                }
+                _ => ()
+            }
+        }
+        r_keys
+    }
+
+    fn permut(&self) -> Block {
         let mask = 0b_11110000_u8;
         let mut block: Block = Default::default();
-        let mut string_1: String = String::new();
-        let mut string_2: String = String::new();
-        let mut string_3: String = String::new();
         for i in 0..BLOCK_LEN {
             let l4: u8 = (&self[i] & mask) >> 4;
             let r4: u8 = &self[i] & !mask;
-            string_1.push_str(&format!("    {:x}{:x}   ", l4, r4));
-            string_2.push_str(&format!("    ↓↓   "));
-            let l4_new: u8 = TABLE[i * 2][l4 as usize];
-            let r4_new: u8 = TABLE[i * 2 + 1][r4 as usize];
-            string_3.push_str(&format!("    {:x}{:x}   ", l4_new, r4_new));
+            let l4_new: u8 = TABLE[i << 1][l4 as usize];
+            let r4_new: u8 = TABLE[(i << 1) + 1][r4 as usize];
             block[i] = (l4_new << 4) + r4_new;
         }
-        println!("{}\n{}\n{}\n{}", string_1, string_2, string_3, block);
         block
     }
 }
