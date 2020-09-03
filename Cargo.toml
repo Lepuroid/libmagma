@@ -1,6 +1,6 @@
 [package]
 name = "magma"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Lepuroid <lepuroid@gmail.com>"]
 repository = "https://github.com/Lepuroid/libmagma.git"
 edition = "2018"
