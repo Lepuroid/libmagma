@@ -12,5 +12,8 @@ Cargo.lock
 # VSC files
 /.vscode/**
 
-# Backups
+# Misc
 *.bak
+*.txt
+*.enc
+*.dec

@@ -1,6 +1,9 @@
+// todo: key input
+// todo: data slicing into 64-bit blocks
+// todo: length control
+// todo: interactive mode (CLI)
 // todo: error handling
 // todo: ecb, cbc, cbf
-// todo: utf-8/utf-16 input check
 // todo: implement u256?..
 
 #[cfg(test)]
@@ -15,8 +18,7 @@ mod tests {
             0b_10011001_u8,
             0b_01100110_u8,
             0b_11100110_u8,
-            0b_10011001_u8,
-        ]);
+            0b_10011001_u8]);
         println!("aa => {}\nbb => {}", aa, bb);
         let cc: Block = aa ^ bb;
         let mut dd: Block = cc;
@@ -52,15 +54,6 @@ mod tests {
     }
     #[test]
     fn test_4() {
-        // Read/Write file
-        let mut path_in = r"C:\OneDrive\Projects\Rust\headache\log.csv";
-        let key = r#"12345678"#;
-        crate::encrypt_ecb(path_in, key);
-        path_in = r"C:\OneDrive\Projects\Rust\headache\log.csv.enc";
-        crate::decrypt_ecb(path_in, key);
-    }
-    #[test]
-    fn test_5() {
         // Round keys from 256-bit key
         use crate::Block;
 
@@ -78,14 +71,24 @@ mod tests {
         }
     }
     #[test]
-    fn test_6() {
-        use crate::Block;
+    fn test_5() {
+        // Encrypt-Decrypt
+        use crate::*;
+        let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\hello.txt");
+        let key = "11112222333344445555666677778888";
 
-        let data: String = String::from("Hello!!!");
-        let key: String = String::from("11112222333344445555666677778888");
-        let r_keys: [Block; 32] = Block::make_r_keys(&key);
-        Block::r2_31(data, r_keys);
+        let mut data = read_file(&path_in).unwrap();
+        println!("{}", String::from_utf8_lossy(&data));
+        
+        encrypt_ecb(&path_in, key);
+        path_in.push_str(".enc");
+        data = read_file(&path_in).unwrap();
+        println!("{}", String::from_utf8_lossy(&data));
 
+        decrypt_ecb(&path_in, key);
+        path_in = path_in.replace(".enc", ".dec");
+        data = read_file(&path_in).unwrap();
+        println!("{}", String::from_utf8_lossy(&data));
     }
 }
 
@@ -102,16 +105,16 @@ use std::{
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
 
-// id-tc26-gost-28147-param-Z
+// RFC 7836: id-tc26-gost-28147-param-Z
 static TABLE: [[u8; 16]; 8] = [
-    [12, 4, 6, 2, 10, 5, 11, 9, 14, 8, 13, 7, 0, 3, 15, 1],   
-    [6, 8, 2, 3, 9, 10, 5, 12, 1, 14, 4, 7, 11, 13, 0, 15],
-    [11, 3, 5, 8, 2, 15, 10, 13, 14, 1, 7, 4, 12, 9, 6, 0],
-    [12, 8, 2, 1, 13, 4, 15, 6, 7, 0, 10, 5, 3, 14, 9, 11],
-    [7, 15, 5, 10, 8, 1, 6, 13, 0, 9, 3, 14, 11, 4, 2, 12],
-    [5, 13, 15, 6, 9, 2, 12, 10, 11, 7, 8, 1, 4, 3, 14, 0],
-    [8, 14, 2, 5, 6, 9, 1, 12, 15, 4, 11, 0, 13, 10, 3, 7],
-    [1, 7, 14, 13, 0, 5, 8, 3, 4, 15, 10, 6, 9, 12, 11, 2]];
+    [0xC, 0x4, 0x6, 0x2, 0xA, 0x5, 0xB, 0x9, 0xE, 0x8, 0xD, 0x7, 0x0, 0x3, 0xF, 0x1],
+    [0x6, 0x8, 0x2, 0x3, 0x9, 0xA, 0x5, 0xC, 0x1, 0xE, 0x4, 0x7, 0xB, 0xD, 0x0, 0xF],
+    [0xB, 0x3, 0x5, 0x8, 0x2, 0xF, 0xA, 0xD, 0xE, 0x1, 0x7, 0x4, 0xC, 0x9, 0x6, 0x0],
+    [0xC, 0x8, 0x2, 0x1, 0xD, 0x4, 0xF, 0x6, 0x7, 0x0, 0xA, 0x5, 0x3, 0xE, 0x9, 0xB],
+    [0x7, 0xF, 0x5, 0xA, 0x8, 0x1, 0x6, 0xD, 0x0, 0x9, 0x3, 0xE, 0xB, 0x4, 0x2, 0xC],
+    [0x5, 0xD, 0xF, 0x6, 0x9, 0x2, 0xC, 0xA, 0xB, 0x7, 0x8, 0x1, 0x4, 0x3, 0xE, 0x0],
+    [0x8, 0xE, 0x2, 0x5, 0x6, 0x9, 0x1, 0xC, 0xF, 0x4, 0xB, 0x0, 0xD, 0xA, 0x3, 0x7],
+    [0x1, 0x7, 0xE, 0xD, 0x0, 0x5, 0x8, 0x3, 0x4, 0xF, 0xA, 0x6, 0x9, 0xC, 0xB, 0x2]];
 
 #[derive(Copy, Clone, Debug, Default)]
 struct Block([u8; BLOCK_LEN]);
@@ -216,6 +219,10 @@ impl Block {
         u32::from_be_bytes(self.0)
     }
 
+    fn to_vec(&self) -> Vec<u8> {
+        Vec::from(self.0)
+    }
+
     fn from_array(array: [u8; BLOCK_LEN]) -> Block {
         Block { 0: array }
     }
@@ -224,14 +231,11 @@ impl Block {
         Block::from_array(n.to_be_bytes())
     }
 
-    fn from_str(data: &str) -> Block {
-        let mut tmp: Block = Default::default();
-        let mut j = 0;
-        for i in String::from(data).as_bytes().iter() {
-            tmp[j] = *i;
-            j += 1;
-        }
-        tmp
+    fn from_slice(slice: &[u8]) -> Block {
+        assert_eq!(BLOCK_LEN, slice.len());
+        let mut result: Block = Default::default();
+        result.iter_mut().zip(slice.iter()).for_each(|(a, b)| *a = *b);
+        result
     }
 
     fn make_r_keys(key: &str) -> [Block; 32] {
@@ -240,7 +244,8 @@ impl Block {
             match i {
                 0..=2 => for j in 0..8 {
                     r_keys[(i << 3) + j].0
-                    .copy_from_slice(&key[j << 2..(j << 2) + 4].as_bytes())
+                    .copy_from_slice(&key[j << 2..(j << 2) + 4]
+                    .as_bytes())
                 }
                 3 => for j in 0..8 {
                     r_keys[(i << 3) + j].0
@@ -266,59 +271,61 @@ impl Block {
         block
     }
 
-    fn r2_31(data: String, r_keys: [Block; 32]) {
-        println!("{}", data);
-        let (l, r) = data.split_at(4);
-        println!("{} {}", l, r);
-
-        let mut left = Block::from_str(&l);
-        let mut right = Block::from_str(&r);
-
-        println!("{} {}", left, right);
-        println!("{:x} {:x}", left, right);
-
+    fn enc_rounds_ecb(mut left: Block, mut right: Block, r_keys: [Block; 32]) -> (Block, Block) {
         for i in 0..31 {
             let tmp = left ^ Block::from_u32((right + r_keys[i]).permut().to_u32().rotate_left(11));
             left = right;
             right = tmp;
         }
         left = left ^ Block::from_u32((right + r_keys[31]).permut().to_u32().rotate_left(11));
+        (left, right)
+    }
 
-
+    fn dec_rounds_ecb(mut left: Block, mut right: Block, r_keys: [Block; 32]) -> (Block, Block) {
         for i in (1..32).rev() {
             let tmp = left ^ Block::from_u32((right + r_keys[i]).permut().to_u32().rotate_left(11));
             left = right;
             right = tmp;
         }
         left = left ^ Block::from_u32((right + r_keys[0]).permut().to_u32().rotate_left(11));
-
-        println!("{} {}", left, right);
-        println!("{:x} {:x}", left, right);
-        let mut result = String::from(std::str::from_utf8(&left.0).unwrap());
-        result.push_str(std::str::from_utf8(&right.0).unwrap());
-        println!("{}", result)
+        (left, right)
     }
 }
 
-fn read_file(path: &str) -> Result<String, Box<dyn Error>> {
+fn read_file(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut file = OpenOptions::new().read(true).open(path)?;
-    let mut read_buffer = String::new();
-    file.read_to_string(&mut read_buffer)?;
+    let mut read_buffer = Vec::new();
+    file.read_to_end(&mut read_buffer)?;
     Ok(read_buffer)
 }
 
-pub fn encrypt_ecb(path_in: &str, _key: &str) {
+pub fn encrypt_ecb(path_in: &str, key: &str) {
+    // Вхлоп
     let mut path_out = String::from(path_in);
     path_out.push_str(".enc");
     let data = read_file(path_in).unwrap();
     // Шифрование
-    write(path_out, data).unwrap();
+    let (l, r) = data.split_at(BLOCK_LEN);
+    let r_keys = Block::make_r_keys(&key);
+    let (left, right) = Block::enc_rounds_ecb(Block::from_slice(l), Block::from_slice(r), r_keys);
+    // Выхлоп
+    let mut result = left.to_vec();
+    result.extend(right.iter());
+    write(path_out, result).unwrap();
 }
 
-pub fn decrypt_ecb(path_in: &str, _key: &str) {
+pub fn decrypt_ecb(path_in: &str, key: &str) {
+    // Вхлоп
     let data = read_file(path_in).unwrap();
     // Дешифрование
+    let (l, r) = data.split_at(BLOCK_LEN);
+    let r_keys = Block::make_r_keys(&key);
+    let (left, right) = Block::dec_rounds_ecb(Block::from_slice(l), Block::from_slice(r), r_keys);
+    // Выхлоп
+    let mut result = left.to_vec();
+    result.extend(right.iter());
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
-    write(path_out, data).unwrap();
+    path_out.push_str(".dec");
+    write(path_out, result).unwrap();
 }
