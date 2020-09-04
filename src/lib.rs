@@ -1,7 +1,6 @@
 // todo: key input
-// todo: data slicing into 64-bit blocks
-// todo: length control
 // todo: interactive mode (CLI)
+// Optimization!!!
 // todo: error handling
 // todo: ecb, cbc, cbf
 // todo: implement u256?..
@@ -74,6 +73,7 @@ mod tests {
     fn test_5() {
         // Encrypt-Decrypt
         use crate::*;
+
         let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\hello.txt");
         let key = "11112222333344445555666677778888";
 
@@ -223,18 +223,31 @@ impl Block {
         Vec::from(self.0)
     }
 
-    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
-        Block { 0: array }
-    }
-
     fn from_u32(n: u32) -> Block {
         Block::from_array(n.to_be_bytes())
+    }
+
+    fn from_array(array: [u8; BLOCK_LEN]) -> Block {
+        Block { 0: array }
     }
 
     fn from_slice(slice: &[u8]) -> Block {
         assert_eq!(BLOCK_LEN, slice.len());
         let mut result: Block = Default::default();
         result.iter_mut().zip(slice.iter()).for_each(|(a, b)| *a = *b);
+        result
+    }
+
+    fn vec_to_blocks(mut vec: Vec<u8>) -> Vec<Block> {
+        let mut result: Vec<Block> = Vec::new();
+        vec.push(8);
+        while let 1..=15 = vec.len() % 16 {
+            vec.push(0)
+        }
+        for i in (0..vec.len()).step_by(8) {
+            result.push(Block::from_slice(&vec[i..i + BLOCK_LEN]));
+            result.push(Block::from_slice(&vec[i + BLOCK_LEN..i + (BLOCK_LEN << 1)]));
+        }
         result
     }
 
@@ -301,29 +314,39 @@ fn read_file(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
 
 pub fn encrypt_ecb(path_in: &str, key: &str) {
     // Вхлоп
+    let data = read_file(path_in).unwrap();
+    let b_data = Block::vec_to_blocks(data);
+    let r_keys = Block::make_r_keys(&key);
+    // Шифрование
+    let mut result: Vec<u8> = Vec::new();
+    for i in (0..b_data.len()).step_by(2) {
+        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
+        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
+    }
+    // Выхлоп
     let mut path_out = String::from(path_in);
     path_out.push_str(".enc");
-    let data = read_file(path_in).unwrap();
-    // Шифрование
-    let (l, r) = data.split_at(BLOCK_LEN);
-    let r_keys = Block::make_r_keys(&key);
-    let (left, right) = Block::enc_rounds_ecb(Block::from_slice(l), Block::from_slice(r), r_keys);
-    // Выхлоп
-    let mut result = left.to_vec();
-    result.extend(right.iter());
     write(path_out, result).unwrap();
 }
 
 pub fn decrypt_ecb(path_in: &str, key: &str) {
     // Вхлоп
     let data = read_file(path_in).unwrap();
-    // Дешифрование
-    let (l, r) = data.split_at(BLOCK_LEN);
+    let b_data = Block::vec_to_blocks(data);
     let r_keys = Block::make_r_keys(&key);
-    let (left, right) = Block::dec_rounds_ecb(Block::from_slice(l), Block::from_slice(r), r_keys);
+    // Дешифрование
+    let mut result: Vec<u8> = Vec::new();
+    for i in (0..b_data.len()).step_by(2) {
+        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
+        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
+    }
+    for i in (0..result.len()).rev() {
+        match result[i] {
+            8 => {result.pop(); break}
+            _ => {result.pop();}
+        }
+    }
     // Выхлоп
-    let mut result = left.to_vec();
-    result.extend(right.iter());
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
     path_out.push_str(".dec");
