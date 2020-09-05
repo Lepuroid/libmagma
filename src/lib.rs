@@ -77,17 +77,17 @@ mod tests {
         let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\hello.txt");
         let key = "11112222333344445555666677778888";
 
-        let mut data = read_file(&path_in).unwrap();
+        let mut data = read_file_to_vec(&path_in).unwrap();
         println!("{}", String::from_utf8_lossy(&data));
         
         encrypt_ecb(&path_in, key);
         path_in.push_str(".enc");
-        data = read_file(&path_in).unwrap();
+        data = read_file_to_vec(&path_in).unwrap();
         println!("{}", String::from_utf8_lossy(&data));
 
         decrypt_ecb(&path_in, key);
         path_in = path_in.replace(".enc", ".dec");
-        data = read_file(&path_in).unwrap();
+        data = read_file_to_vec(&path_in).unwrap();
         println!("{}", String::from_utf8_lossy(&data));
     }
 }
@@ -240,7 +240,7 @@ impl Block {
 
     fn vec_to_blocks(mut vec: Vec<u8>) -> Vec<Block> {
         let mut result: Vec<Block> = Vec::new();
-        vec.push(8);
+        vec.push(0b_10000000_u8);
         while let 1..=15 = vec.len() % 16 {
             vec.push(0)
         }
@@ -305,7 +305,7 @@ impl Block {
     }
 }
 
-fn read_file(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
     let mut file = OpenOptions::new().read(true).open(path)?;
     let mut read_buffer = Vec::new();
     file.read_to_end(&mut read_buffer)?;
@@ -313,40 +313,38 @@ fn read_file(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
 }
 
 pub fn encrypt_ecb(path_in: &str, key: &str) {
-    // Вхлоп
-    let data = read_file(path_in).unwrap();
+
+    let data = read_file_to_vec(path_in).unwrap();
     let b_data = Block::vec_to_blocks(data);
     let r_keys = Block::make_r_keys(&key);
-    // Шифрование
+
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
     }
-    // Выхлоп
+
     let mut path_out = String::from(path_in);
     path_out.push_str(".enc");
     write(path_out, result).unwrap();
 }
 
 pub fn decrypt_ecb(path_in: &str, key: &str) {
-    // Вхлоп
-    let data = read_file(path_in).unwrap();
+    let data = read_file_to_vec(path_in).unwrap();
     let b_data = Block::vec_to_blocks(data);
     let r_keys = Block::make_r_keys(&key);
-    // Дешифрование
+
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
     }
-    for i in (0..result.len()).rev() {
-        match result[i] {
-            8 => {result.pop(); break}
-            _ => {result.pop();}
+    while let Some(i) = result.pop() {
+        if i == 0b_10000000_u8 {
+            break
         }
     }
-    // Выхлоп
+
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
     path_out.push_str(".dec");
