@@ -46,40 +46,46 @@ mod tests {
         let bb = aa.permut();
         println!("{:x}\n ↓↓ ↓↓ ↓↓ ↓↓\n{:x}", aa, bb);
     }
-    #[test]
-    fn test_4() {
-        // Round keys from 256-bit key
-        let key: &str = "11112222333344445555666677778888";
-        let r_keys: [Block; 32] = Block::make_r_keys(&key);
-        let mut i: u8 = 0;
-        for x in r_keys.iter() {
-            i += 1;
-            println!("{}{}{}{} => {:x} => {}", x[0] as char, x[1] as char,
-                                               x[2] as char, x[3] as char, x, x);
-            match i {
-                8 => {i = 0; println!()},
-                _ => (),
-            }
-        }
-    }
+    // #[test]
+    // fn test_4() {
+    //     //Round keys from 256-bit key
+    //     let key: &str = "11112222333344445555666677778888";
+    //     let r_keys: [Block; 32] = Block::make_r_keys(&key);
+    //     let mut i: u8 = 0;
+    //     for x in r_keys.iter() {
+    //         i += 1;
+    //         println!("{}{}{}{} => {:x} => {}", x[0] as char, x[1] as char,
+    //                                            x[2] as char, x[3] as char, x, x);
+    //         match i {
+    //             8 => {i = 0; println!()},
+    //             _ => (),
+    //         }
+    //     }
+    // }
     #[test]
     fn test_5() {
         // Encrypt-Decrypt
         let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\hello.txt");
-        let key = "11112222333344445555666677778888";
-
-        let mut data = read_file_to_vec(&path_in).unwrap();
-        println!("{}", String::from_utf8_lossy(&data));
+        //ffeeddccbbaa9988776655443322113ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff
+        let key: Vec<u8> = vec![0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+                                0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+                                0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
+                                0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
+        println!("{:0x?}", key);
         
-        encrypt_ecb(&path_in, key);
+        write(&path_in, vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10]).unwrap();
+        let mut data = read_file_to_vec(&path_in).unwrap();
+        println!("{:0x?}", data);
+        
+        encrypt_ecb(&path_in, &key);
         path_in.push_str(".enc");
         data = read_file_to_vec(&path_in).unwrap();
-        println!("{}", String::from_utf8_lossy(&data));
+        println!("{:x?}", data);
 
-        decrypt_ecb(&path_in, key);
+        decrypt_ecb(&path_in, &key);
         path_in = path_in.replace(".enc", ".dec");
         data = read_file_to_vec(&path_in).unwrap();
-        println!("{}", String::from_utf8_lossy(&data));
+        println!("{:0x?}", data);
     }
 }
 
@@ -98,14 +104,14 @@ const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
 
 // RFC 7836: id-tc26-gost-28147-param-Z
 static TABLE: [[u8; 16]; 8] = [
-    [0xC, 0x4, 0x6, 0x2, 0xA, 0x5, 0xB, 0x9, 0xE, 0x8, 0xD, 0x7, 0x0, 0x3, 0xF, 0x1],
-    [0x6, 0x8, 0x2, 0x3, 0x9, 0xA, 0x5, 0xC, 0x1, 0xE, 0x4, 0x7, 0xB, 0xD, 0x0, 0xF],
-    [0xB, 0x3, 0x5, 0x8, 0x2, 0xF, 0xA, 0xD, 0xE, 0x1, 0x7, 0x4, 0xC, 0x9, 0x6, 0x0],
-    [0xC, 0x8, 0x2, 0x1, 0xD, 0x4, 0xF, 0x6, 0x7, 0x0, 0xA, 0x5, 0x3, 0xE, 0x9, 0xB],
-    [0x7, 0xF, 0x5, 0xA, 0x8, 0x1, 0x6, 0xD, 0x0, 0x9, 0x3, 0xE, 0xB, 0x4, 0x2, 0xC],
-    [0x5, 0xD, 0xF, 0x6, 0x9, 0x2, 0xC, 0xA, 0xB, 0x7, 0x8, 0x1, 0x4, 0x3, 0xE, 0x0],
+    [0x1, 0x7, 0xE, 0xD, 0x0, 0x5, 0x8, 0x3, 0x4, 0xF, 0xA, 0x6, 0x9, 0xC, 0xB, 0x2],
     [0x8, 0xE, 0x2, 0x5, 0x6, 0x9, 0x1, 0xC, 0xF, 0x4, 0xB, 0x0, 0xD, 0xA, 0x3, 0x7],
-    [0x1, 0x7, 0xE, 0xD, 0x0, 0x5, 0x8, 0x3, 0x4, 0xF, 0xA, 0x6, 0x9, 0xC, 0xB, 0x2]];
+    [0x5, 0xD, 0xF, 0x6, 0x9, 0x2, 0xC, 0xA, 0xB, 0x7, 0x8, 0x1, 0x4, 0x3, 0xE, 0x0],
+    [0x7, 0xF, 0x5, 0xA, 0x8, 0x1, 0x6, 0xD, 0x0, 0x9, 0x3, 0xE, 0xB, 0x4, 0x2, 0xC],
+    [0xC, 0x8, 0x2, 0x1, 0xD, 0x4, 0xF, 0x6, 0x7, 0x0, 0xA, 0x5, 0x3, 0xE, 0x9, 0xB],
+    [0xB, 0x3, 0x5, 0x8, 0x2, 0xF, 0xA, 0xD, 0xE, 0x1, 0x7, 0x4, 0xC, 0x9, 0x6, 0x0],
+    [0x6, 0x8, 0x2, 0x3, 0x9, 0xA, 0x5, 0xC, 0x1, 0xE, 0x4, 0x7, 0xB, 0xD, 0x0, 0xF],
+    [0xC, 0x4, 0x6, 0x2, 0xA, 0x5, 0xB, 0x9, 0xE, 0x8, 0xD, 0x7, 0x0, 0x3, 0xF, 0x1]];
 
 #[derive(Copy, Clone, Debug, Default)]
 struct Block([u8; BLOCK_LEN]);
@@ -231,10 +237,10 @@ impl Block {
 
     fn vec_to_blocks(mut vec: Vec<u8>) -> Vec<Block> {
         let mut result: Vec<Block> = Vec::new();
-        vec.push(0b_10000000_u8);
-        while let 1..=15 = vec.len() % 16 {
-            vec.push(0)
-        }
+        // vec.push(0b_10000000_u8);
+        // while let 1..=15 = vec.len() % 16 {
+        //     vec.push(0)
+        // }
         for i in (0..vec.len()).step_by(8) {
             result.push(Block::from_slice(&vec[i..i + BLOCK_LEN]));
             result.push(Block::from_slice(&vec[i + BLOCK_LEN..i + (BLOCK_LEN << 1)]));
@@ -242,19 +248,17 @@ impl Block {
         result
     }
 
-    fn make_r_keys(key: &str) -> [Block; 32] {
+    fn make_r_keys(key: &Vec<u8>) -> [Block; 32] {
         let mut r_keys: [Block; 32] = Default::default();
         for i in 0..4 {
             match i {
                 0..=2 => for j in 0..8 {
                     r_keys[(i << 3) + j].0
-                    .copy_from_slice(&key[j << 2..(j << 2) + 4]
-                    .as_bytes())
+                    .copy_from_slice(&key[j << 2..(j << 2) + 4])
                 }
                 3 => for j in 0..8 {
                     r_keys[(i << 3) + j].0
-                    .copy_from_slice(&key[(i + 1 << 3) - (j << 2) - 4..(i + 1 << 3) - (j << 2)]
-                    .as_bytes());
+                    .copy_from_slice(&key[(i + 1 << 3) - (j << 2) - 4..(i + 1 << 3) - (j << 2)]);
                 }
                 _ => ()
             }
@@ -303,16 +307,16 @@ fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
     Ok(read_buffer)
 }
 
-pub fn encrypt_ecb(path_in: &str, key: &str) {
+pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
 
     let data = read_file_to_vec(path_in).unwrap();
     let b_data = Block::vec_to_blocks(data);
-    let r_keys = Block::make_r_keys(&key);
+    let r_keys = Block::make_r_keys(key);
 
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
-        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
-        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
+        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
+        result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
 
     let mut path_out = String::from(path_in);
@@ -320,21 +324,21 @@ pub fn encrypt_ecb(path_in: &str, key: &str) {
     write(path_out, result).unwrap();
 }
 
-pub fn decrypt_ecb(path_in: &str, key: &str) {
+pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
     let data = read_file_to_vec(path_in).unwrap();
     let b_data = Block::vec_to_blocks(data);
-    let r_keys = Block::make_r_keys(&key);
+    let r_keys = Block::make_r_keys(key);
 
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
-        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).0.to_vec());
-        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i+1], r_keys).1.to_vec());
+        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
+        result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
-    while let Some(i) = result.pop() {
-        if i == 0b_10000000_u8 {
-            break
-        }
-    }
+    // while let Some(i) = result.pop() {
+    //     if i == 0b_10000000_u8 {
+    //         break
+    //     }
+    // }
 
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
