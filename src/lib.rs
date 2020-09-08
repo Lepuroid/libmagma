@@ -73,7 +73,7 @@ mod tests {
                                 0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
         println!("{:0x?}", key);
         
-        write(&path_in, vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10]).unwrap();
+        //write(&path_in, vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10]).unwrap();
         let mut data = read_file_to_vec(&path_in).unwrap();
         println!("{:0x?}", data);
         
@@ -102,7 +102,7 @@ use std::{
 const BLOCK_LEN: usize = 4;
 const BLOCK_LEN_INC: usize = BLOCK_LEN - 1;
 
-// RFC 7836: id-tc26-gost-28147-param-Z
+// RFC 7836: id-tc26-gost-28147-param-Z (reversed)
 static TABLE: [[u8; 16]; 8] = [
     [0x1, 0x7, 0xE, 0xD, 0x0, 0x5, 0x8, 0x3, 0x4, 0xF, 0xA, 0x6, 0x9, 0xC, 0xB, 0x2],
     [0x8, 0xE, 0x2, 0x5, 0x6, 0x9, 0x1, 0xC, 0xF, 0x4, 0xB, 0x0, 0xD, 0xA, 0x3, 0x7],
@@ -235,12 +235,8 @@ impl Block {
         result
     }
 
-    fn vec_to_blocks(mut vec: Vec<u8>) -> Vec<Block> {
+    fn vec_to_blocks(vec: Vec<u8>) -> Vec<Block> {
         let mut result: Vec<Block> = Vec::new();
-        // vec.push(0b_10000000_u8);
-        // while let 1..=15 = vec.len() % 16 {
-        //     vec.push(0)
-        // }
         for i in (0..vec.len()).step_by(8) {
             result.push(Block::from_slice(&vec[i..i + BLOCK_LEN]));
             result.push(Block::from_slice(&vec[i + BLOCK_LEN..i + (BLOCK_LEN << 1)]));
@@ -308,11 +304,14 @@ fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
 }
 
 pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
-
-    let data = read_file_to_vec(path_in).unwrap();
+    let mut data = read_file_to_vec(path_in).unwrap();
+    data.push(0b_10000000_u8);
+    while let 1..=15 = data.len() % 16 {
+        data.push(0)
+    }
     let b_data = Block::vec_to_blocks(data);
     let r_keys = Block::make_r_keys(key);
-
+    
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
@@ -334,11 +333,11 @@ pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
-    // while let Some(i) = result.pop() {
-    //     if i == 0b_10000000_u8 {
-    //         break
-    //     }
-    // }
+    while let Some(i) = result.pop() {
+        if i == 0b_10000000_u8 {
+            break
+        }
+    }
 
     let mut path_out = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
