@@ -7,11 +7,10 @@
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     #[test]
     fn test_1() {
         // ^ and ^= overload
-        use crate::Block;
-
         let aa: Block = Block::from_u32(0b_01100110_10011001_00011001_01100110_u32);
         let bb: Block = Block::from_array([
             0b_10011001_u8,
@@ -27,8 +26,6 @@ mod tests {
     #[test]
     fn test_2() {
         // + and += overload
-        use crate::Block;
-
         let aa: Block = Block::from_u32(0b_10000000_00000000_00000000_00000000_u32);
         let bb: Block = Block::from_array([
             0b_01000000_u8,
@@ -45,8 +42,6 @@ mod tests {
     #[test]
     fn test_3() {
         // T Permutation
-        use crate::Block;
-
         let aa: Block = Block::from_u32(0b_10100101001111000101101011000011_u32);
         let bb = aa.permut();
         println!("{:x}\n ↓↓ ↓↓ ↓↓ ↓↓\n{:x}", aa, bb);
@@ -54,8 +49,6 @@ mod tests {
     #[test]
     fn test_4() {
         // Round keys from 256-bit key
-        use crate::Block;
-
         let key: &str = "11112222333344445555666677778888";
         let r_keys: [Block; 32] = Block::make_r_keys(&key);
         let mut i: u8 = 0;
@@ -72,8 +65,6 @@ mod tests {
     #[test]
     fn test_5() {
         // Encrypt-Decrypt
-        use crate::*;
-
         let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\hello.txt");
         let key = "11112222333344445555666677778888";
 
