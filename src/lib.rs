@@ -1,8 +1,10 @@
 // todo: key input
 // todo: interactive mode (CLI)
-// Optimization!!!
 // todo: error handling
-// todo: ecb, cbc, cbf
+// todo: optimization
+// todo: padding methods
+// todo: _ecb_, cbc, cbf
+// todo: multithreading
 // todo: implement u256?..
 
 #[cfg(test)]
@@ -225,11 +227,11 @@ impl Block {
         let mask = 0b_11110000_u8;
         let mut block: Block = Default::default();
         for i in 0..BLOCK_LEN {
-            let l4: u8 = (&self[i] & mask) >> 4;
-            let r4: u8 = &self[i] & !mask;
-            let l4_new: u8 = TABLE[i << 1][l4 as usize];
-            let r4_new: u8 = TABLE[(i << 1) + 1][r4 as usize];
-            block[i] = (l4_new << 4) + r4_new;
+            let mut l4: u8 = (&self[i] & mask) >> 4;
+            let mut r4: u8 = &self[i] & !mask;
+            l4 = TABLE[i << 1][l4 as usize];
+            r4 = TABLE[(i << 1) + 1][r4 as usize];
+            block[i] = (l4 << 4) + r4;
         }
         block
     }
