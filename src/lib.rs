@@ -227,11 +227,8 @@ impl Block {
         let mask = 0b_11110000_u8;
         let mut block: Block = Default::default();
         for i in 0..BLOCK_LEN {
-            let mut l4: u8 = (&self[i] & mask) >> 4;
-            let mut r4: u8 = &self[i] & !mask;
-            l4 = TABLE[i << 1][l4 as usize];
-            r4 = TABLE[(i << 1) + 1][r4 as usize];
-            block[i] = (l4 << 4) + r4;
+            block[i] = ((TABLE[i << 1][((&self[i] & mask) >> 4) as usize]) << 4) + 
+                         TABLE[(i << 1) + 1][(&self[i] & !mask) as usize];
         }
         block
     }
