@@ -14,20 +14,20 @@ mod tests {
     fn gost_sample() {
         // Encrypt-Decrypt
         let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\GOST_data.hex");
-        let key_in = r"C:\OneDrive\Projects\Rust\libmagma\GOST_key.hex";
+        let key_in: &str = r"C:\OneDrive\Projects\Rust\libmagma\GOST_key.hex";
 
         // Key: ffeeddccbbaa9988776655443322113ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff
         let hex_key: Vec<u8> = vec![0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
                                     0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
                                     0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
                                     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
-        let key = read_file_to_vec(key_in).unwrap();
+        let key: Vec<u8> = read_file_to_vec(key_in).unwrap();
         assert_eq!(key, hex_key);
         println!("Key:\n{:02x?}", key);
         
         // Data: fedcba9876543210
         let hex_data: Vec<u8> = vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let mut data = read_file_to_vec(&path_in).unwrap();
+        let mut data: Vec<u8> = read_file_to_vec(&path_in).unwrap();
         assert_eq!(hex_data, data);
         println!("Raw: {:02x?}", data);
         
@@ -36,8 +36,7 @@ mod tests {
         encrypt_ecb(&path_in, &key);
         path_in.push_str(".enc");
         data = read_file_to_vec(&path_in).unwrap();
-        // ISO/IEC 9797-1 Padding method 2 (added block removal)
-        data.truncate(8);
+        data.truncate(8); // ISO/IEC 9797-1 Padding method 2 (added block removal)
         assert_eq!(hex_enc_data, data);
         println!("Enc: {:02x?}", data);
 
@@ -254,14 +253,14 @@ impl Block {
 }
 
 fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-    let mut file = OpenOptions::new().read(true).open(path)?;
-    let mut read_buffer = Vec::new();
+    let mut file: std::fs::File = OpenOptions::new().read(true).open(path)?;
+    let mut read_buffer: Vec<u8> = Vec::new();
     file.read_to_end(&mut read_buffer)?;
     Ok(read_buffer)
 }
 
 pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
-    let mut data = read_file_to_vec(path_in).unwrap();
+    let mut data: Vec<u8> = read_file_to_vec(path_in).unwrap();
 
     // ISO/IEC 9797-1 Padding method 2
     data.push(0b_10000000_u8);
@@ -269,8 +268,8 @@ pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
         data.push(0)
     }
 
-    let b_data = Block::vec_to_blocks(data);
-    let r_keys = Block::make_r_keys(key);
+    let b_data: Vec<Block> = Block::vec_to_blocks(data);
+    let r_keys: [Block; 32] = Block::make_r_keys(key);
     
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
@@ -278,15 +277,15 @@ pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
 
-    let mut path_out = String::from(path_in);
+    let mut path_out: String = String::from(path_in);
     path_out.push_str(".enc");
     write(path_out, result).unwrap();
 }
 
 pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
-    let data = read_file_to_vec(path_in).unwrap();
-    let b_data = Block::vec_to_blocks(data);
-    let r_keys = Block::make_r_keys(key);
+    let data: Vec<u8> = read_file_to_vec(path_in).unwrap();
+    let b_data: Vec<Block> = Block::vec_to_blocks(data);
+    let r_keys: [Block; 32] = Block::make_r_keys(key);
 
     let mut result: Vec<u8> = Vec::new();
     for i in (0..b_data.len()).step_by(2) {
@@ -300,7 +299,7 @@ pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
         }
     }
 
-    let mut path_out = String::from(path_in);
+    let mut path_out: String = String::from(path_in);
     path_out.truncate(path_out.rfind('.').unwrap());
     path_out.push_str(".dec");
     write(path_out, result).unwrap();
