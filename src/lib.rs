@@ -22,14 +22,14 @@ mod tests {
                                     0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
                                     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
         let key = read_file_to_vec(key_in).unwrap();
-        println!("{:0x?}", key);
         assert_eq!(key, hex_key);
+        println!("Key:\n{:02x?}", key);
         
         // Data: fedcba9876543210
         let hex_data: Vec<u8> = vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
         let mut data = read_file_to_vec(&path_in).unwrap();
-        println!("{:0x?}", data);
         assert_eq!(hex_data, data);
+        println!("Raw: {:02x?}", data);
         
         // Encrypted data: 4ee901e5c2d8ca3d
         let hex_enc_data: Vec<u8> = vec![0x4e, 0xe9, 0x01, 0xe5, 0xc2, 0xd8, 0xca, 0x3d];
@@ -39,14 +39,14 @@ mod tests {
         // ISO/IEC 9797-1 Padding method 2 (added block removal)
         data.truncate(8);
         assert_eq!(hex_enc_data, data);
-        println!("{:x?}", data);
+        println!("Enc: {:02x?}", data);
 
         // Decrypted data == Data
         decrypt_ecb(&path_in, &key);
         path_in = path_in.replace(".enc", ".dec");
         data = read_file_to_vec(&path_in).unwrap();
         assert_eq!(hex_data, data);
-        println!("{:0x?}", data);
+        println!("Dec: {:02x?}", data);
     }
 }
 
@@ -224,11 +224,10 @@ impl Block {
     }
 
     fn permut(&self) -> Block {
-        let mask = 0b_11110000_u8;
         let mut block: Block = Default::default();
         for i in 0..BLOCK_LEN {
-            block[i] = ((TABLE[i << 1][((&self[i] & mask) >> 4) as usize]) << 4) + 
-                         TABLE[(i << 1) + 1][(&self[i] & !mask) as usize];
+            block[i] = ((TABLE[i << 1][((&self[i] & 0b_11110000_u8) >> 4) as usize]) << 4) + 
+                         TABLE[(i << 1) + 1][(&self[i] & 0b_00001111_u8) as usize];
         }
         block
     }
