@@ -2,59 +2,50 @@
 // todo: interactive mode (CLI)
 // todo: error handling
 // todo: optimization
-// todo: padding methods
-// todo: _ecb_, ctr, ofb, cbc, cbf, mac
-// todo: multithreading
-// todo: implement u256?..
+// todo: !ecb, ctr, ofb, cbc, cbf, mac
+// todo: use u32, u64 and implement u256?..
 
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn gost_sample() {
-        // Encrypt-Decrypt
-        let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\sample_data.hex");
-        let key_in: &str = r"C:\OneDrive\Projects\Rust\libmagma\sample_key.hex";
-
         // Key: ffeeddccbbaa9988776655443322113ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff
-        let hex_key: Vec<u8> = vec![0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
-                                    0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
-                                    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
-                                    0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
-        let key: Vec<u8> = read_file_to_vec(key_in).unwrap();
-        assert_eq!(key, hex_key);
-        println!("Key:\n{:02x?}", key);
-        
         // Data: fedcba9876543210
-        let hex_data: Vec<u8> = vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let mut data: Vec<u8> = read_file_to_vec(&path_in).unwrap();
-        assert_eq!(hex_data, data);
-        println!("Raw: {:02x?}", data);
-        
         // Encrypted data: 4ee901e5c2d8ca3d
-        let hex_enc_data: Vec<u8> = vec![0x4e, 0xe9, 0x01, 0xe5, 0xc2, 0xd8, 0xca, 0x3d];
-        encrypt_ecb(&path_in, &key);
-        path_in.push_str(".enc");
-        data = read_file_to_vec(&path_in).unwrap();
-        data.truncate(8); // ISO/IEC 9797-1 Padding method 2 (added block removal)
-        assert_eq!(hex_enc_data, data);
-        println!("Enc: {:02x?}", data);
+        let gost_key: Vec<u8> = vec![0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
+                                     0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, 0x00,
+                                     0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 
+                                     0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff];
+        let gost_data: Vec<u8> = vec![0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
+        let gost_enc_data: Vec<u8> = vec![0x4e, 0xe9, 0x01, 0xe5, 0xc2, 0xd8, 0xca, 0x3d];
 
-        // Decrypted data == Data
-        decrypt_ecb(&path_in, &key);
-        path_in = path_in.replace(".enc", ".dec");
-        data = read_file_to_vec(&path_in).unwrap();
-        assert_eq!(hex_data, data);
-        println!("Dec: {:02x?}", data);
+        let enc_data = encrypt_ecb(&gost_data, &gost_key);
+        assert_eq!(enc_data, gost_enc_data);
+        let dec_data = decrypt_ecb(&enc_data, &gost_key);
+        assert_eq!(dec_data, gost_data);
+    }
+    #[test]
+    fn test_1() {
+        let dir_path: std::path::PathBuf = std::env::current_dir().unwrap();
+        let key_path: &str = &format!("{}\\{}", dir_path.to_str().unwrap(), "key.txt");
+        let dat_path: &str = &format!("{}\\{}", dir_path.to_str().unwrap(), "data.txt");
+        let key = read_file_to_vec(key_path).unwrap();
+
+        enc_file(dat_path, &key, "ecb", 2);
+        dec_file(&format!("{}{}", dat_path, ".enc"), &key, "ecb");
     }
 }
+
+mod padding;
+use padding::*;
 
 use core::slice::{Iter, IterMut};
 use std::{
     error::Error,
     fmt::{self, Display, Formatter, LowerHex},
-    fs::{write, OpenOptions},
-    io::Read,
+    fs::{File, OpenOptions},
+    io::{self, Read, Write},
     ops::{Add, AddAssign, BitXor, BitXorAssign, Index, IndexMut},
     result::Result,
 };
@@ -195,7 +186,7 @@ impl Block {
         result
     }
 
-    fn vec_to_blocks(vec: Vec<u8>) -> Vec<Block> {
+    fn vec_to_blocks(vec: &Vec<u8>) -> Vec<Block> {
         let mut result: Vec<Block> = Vec::new();
         for i in (0..vec.len()).step_by(8) {
             result.push(Block::from_slice(&vec[i..i + BLOCK_LEN]));
@@ -252,22 +243,7 @@ impl Block {
     }
 }
 
-fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-    let mut file: std::fs::File = OpenOptions::new().read(true).open(path)?;
-    let mut read_buffer: Vec<u8> = Vec::new();
-    file.read_to_end(&mut read_buffer)?;
-    Ok(read_buffer)
-}
-
-pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
-    let mut data: Vec<u8> = read_file_to_vec(path_in).unwrap();
-
-    // ISO/IEC 9797-1 Padding method 2
-    data.push(0b_10000000_u8);
-    while let 1..=15 = data.len() % 16 {
-        data.push(0)
-    }
-
+pub fn encrypt_ecb(data: &Vec<u8>, key: &Vec<u8>) -> Vec<u8> {
     let b_data: Vec<Block> = Block::vec_to_blocks(data);
     let r_keys: [Block; 32] = Block::make_r_keys(key);
     
@@ -276,14 +252,10 @@ pub fn encrypt_ecb(path_in: &str, key: &Vec<u8>) {
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
         result.append(&mut Block::enc_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
-
-    let mut path_out: String = String::from(path_in);
-    path_out.push_str(".enc");
-    write(path_out, result).unwrap();
+    result
 }
 
-pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
-    let data: Vec<u8> = read_file_to_vec(path_in).unwrap();
+pub fn decrypt_ecb(data: &Vec<u8>, key: &Vec<u8>) -> Vec<u8> {
     let b_data: Vec<Block> = Block::vec_to_blocks(data);
     let r_keys: [Block; 32] = Block::make_r_keys(key);
 
@@ -292,15 +264,57 @@ pub fn decrypt_ecb(path_in: &str, key: &Vec<u8>) {
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).0.to_vec());
         result.append(&mut Block::dec_rounds_ecb(b_data[i], b_data[i + 1], r_keys).1.to_vec());
     }
-    // ISO/IEC 9797-1 Padding method 2
-    while let Some(i) = result.pop() {
-        if i == 0b_10000000_u8 {
-            break
-        }
+    result
+}
+
+fn read_file_to_vec(path: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    let mut file: File = OpenOptions::new().read(true).open(path)?;
+    let mut buffer: Vec<u8> = Vec::new();
+    file.read_to_end(&mut buffer)?;
+    Ok(buffer)
+}
+
+fn write_vec_to_file(path: &str, data: &Vec<u8>) -> io::Result<()> {
+    let mut file: File = OpenOptions::new().write(true).create(true).truncate(true).open(path)?;
+    file.write(data)?;
+    Ok(())
+}
+
+pub fn enc_file(path: &str, key: &Vec<u8>, mode: &str, padding: u8) {
+    let mut data: Vec<u8> = read_file_to_vec(path).unwrap();
+
+    match padding {
+        1 => data = pad_1(data),
+        2 => data = pad_2(data),
+        3 => data = pad_3(data),
+        _ => ()
     }
 
-    let mut path_out: String = String::from(path_in);
-    path_out.truncate(path_out.rfind('.').unwrap());
-    path_out.push_str(".dec");
-    write(path_out, result).unwrap();
+    match mode {
+        "ecb" => data = encrypt_ecb(&data, &key),
+        "ctr" => todo!(),
+        "ofb" => todo!(), 
+        "cbc" => todo!(),
+        "cbf" => todo!(), 
+        "mac" => todo!(),
+        _ => ()
+    }
+
+    write_vec_to_file(&format!("{}{}", path, ".enc"), &data).unwrap();
+}
+
+pub fn dec_file(path: &str, key: &Vec<u8>, mode: &str) {
+    let mut data = read_file_to_vec(path).unwrap();
+
+    match mode {
+        "ecb" => data = unpad(decrypt_ecb(&data, &key)),
+        "ctr" => todo!(),
+        "ofb" => todo!(), 
+        "cbc" => todo!(),
+        "cbf" => todo!(), 
+        "mac" => todo!(),
+        _ => ()
+    }
+
+    write_vec_to_file(&format!("{:.*}{}", path.len() - 4, path, ".dec"), &data).unwrap();
 }
