@@ -12,11 +12,6 @@
 - [ ] CFB (Cypher Feedback)
 - [ ] MAC (Message Authentication Code)
 
-
-## Padding methods
-
-[ISO/IEC 9797-1 Padding method 2](https://en.wikipedia.org/wiki/ISO/IEC_9797-1#Padding) used, more to come.
- 
 ## License
 
 [MIT license](http://opensource.org/licenses/MIT)
