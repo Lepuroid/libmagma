@@ -1,6 +1,8 @@
 # libmagma
 
-[GOST R 34.12-2015 (ru)](https://tc26.ru/standard/gost/GOST_R_3412-2015.pdf) Magma block cypher library in Rust.
+[GOST R 34.12-2015 (ru)](https://tc26.ru/standard/gost/GOST_R_3412-2015.pdf) block cypher library in Rust.
+- [x] Magma
+- [ ] Kuznyechik
 
 ## Block Cypher Modes of Operation
 
