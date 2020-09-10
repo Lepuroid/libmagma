@@ -3,7 +3,7 @@
 // todo: error handling
 // todo: optimization
 // todo: padding methods
-// todo: _ecb_, cbc, cbf
+// todo: _ecb_, ctr, ofb, cbc, cbf, mac
 // todo: multithreading
 // todo: implement u256?..
 
