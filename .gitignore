@@ -16,8 +16,5 @@ Cargo.lock
 /.idea/**
 
 # Misc
-*.bak
-*.txt
 *.enc
 *.dec
-*.pdf
