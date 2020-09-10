@@ -13,8 +13,8 @@ mod tests {
     #[test]
     fn gost_sample() {
         // Encrypt-Decrypt
-        let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\GOST_data.hex");
-        let key_in: &str = r"C:\OneDrive\Projects\Rust\libmagma\GOST_key.hex";
+        let mut path_in: String = String::from(r"C:\OneDrive\Projects\Rust\libmagma\sample_data.hex");
+        let key_in: &str = r"C:\OneDrive\Projects\Rust\libmagma\sample_key.hex";
 
         // Key: ffeeddccbbaa9988776655443322113ff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff
         let hex_key: Vec<u8> = vec![0xff, 0xee, 0xdd, 0xcc, 0xbb, 0xaa, 0x99, 0x88,
